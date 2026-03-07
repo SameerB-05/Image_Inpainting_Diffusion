@@ -1,0 +1,42 @@
+# Python cache
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.env*/
+
+# Dataset (keep folder, ignore contents)
+data/*
+!data/.gitkeep
+
+# Training checkpoints (keep folder, ignore contents)
+checkpoints/*
+!checkpoints/.gitkeep
+
+# Model weights / large files
+*.pth
+*.pt
+*.ckpt
+
+# Logs / arrays
+*.npy
+*.npz
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+
+# Temporary / misc
+tree.txt
