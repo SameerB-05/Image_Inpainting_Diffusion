@@ -18,7 +18,7 @@ This repository explores:
 * experimenting with **UNet-based noise prediction**
 * training a diffusion model on a real image dataset
 
-Future work will explore **diffusion-based inpainting using the RePaint algorithm**.
+Further work will explore **diffusion-based inpainting using the RePaint algorithm**.
 
 ---
 
