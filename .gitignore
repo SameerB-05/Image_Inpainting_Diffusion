@@ -1,5 +1,5 @@
 # Python cache
-**pycache**/
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -9,15 +9,22 @@ venv/
 .env/
 .env*/
 
-# Dataset (keep folder, ignore contents)
+# Dataset (keep folder, ignore contents except .gitkeep)
 data/*
 !data/.gitkeep
 
-# Training checkpoints (keep folder, ignore contents)
+# CelebA dataset inside Phase 1 (ignore all images)
+data/celeba/img_align_celeba/*
+
+# Training checkpoints (keep folder, ignore contents except .gitkeep)
 checkpoints/*
 !checkpoints/.gitkeep
 
-# Model weights / large files
+# Pretrained weights folder (keep folder, ignore all large files)
+repaint_simplified/pretrained_weights/*
+!repaint_simplified/pretrained_weights/.gitkeep
+
+# Other model weights / large files
 *.pth
 *.pt
 *.ckpt
@@ -25,6 +32,12 @@ checkpoints/*
 # Logs / arrays
 *.npy
 *.npz
+
+# Plots (optional)
+assets/*.png
+!assets/repaint_result_plot3.png
+!assets/repaint_result_plot5.png
+!assets/repaint_result_plot6.png
 
 # OS junk
 .DS_Store
@@ -37,6 +50,8 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 
-
 # Temporary / misc
 tree.txt
+tree_repo.txt
+tree_repo2.txt
+tree_repo3.txt
