@@ -1,86 +1,103 @@
-# Diffusion Models From Scratch — DDPM Implementation
+# Diffusion Models and Image Inpainting — DDPM & RePaint
 
-This repository contains a **PyTorch implementation of Denoising Diffusion Probabilistic Models (DDPM)** trained on the **CelebA 64×64 dataset**.
-The goal of this project is to understand diffusion-based generative modeling by implementing the architecture and training pipeline from scratch.
+This repository contains two phases:
 
-This project serves as the **first phase of experimentation**, focusing on building and training a diffusion model without relying on pretrained architectures.
+1. **Phase 1:** PyTorch implementation of **Denoising Diffusion Probabilistic Models (DDPM)** trained on **CelebA 64×64** images from scratch.
+2. **Phase 2:** **Diffusion-based image inpainting using the RePaint algorithm**, with working code and sample outputs.
+
+The goal is to **understand diffusion-based generative modeling** and apply it to **practical image inpainting tasks**.
 
 ---
 
 ## Project Motivation
 
-Diffusion models have recently become one of the most powerful approaches for generative modeling in computer vision. Instead of generating data directly, they learn to **reverse a gradual noise corruption process**.
+Diffusion models are powerful generative models that **learn to reverse a gradual noise corruption process**.
 
 This repository explores:
 
-* implementing a **DDPM training pipeline from scratch**
-* understanding the **forward and reverse diffusion processes**
-* experimenting with **UNet-based noise prediction**
-* training a diffusion model on a real image dataset
+- **Phase 1:** DDPM training from scratch
+- **Phase 2:** Image inpainting using RePaint with masked inputs
 
-Further work will explore **diffusion-based inpainting using the RePaint algorithm**.
+Applications include image restoration, conditional generation, and experimentation with diffusion resampling strategies.
 
 ---
 
-## Implemented Components
+## Phase 1 — DDPM Implementation
 
-The following components are implemented from scratch.
+### Components
 
-### 1. Diffusion Process
+**Diffusion Process**
 
-The forward diffusion process gradually corrupts an image with Gaussian noise:
+Forward diffusion adds Gaussian noise:
 
-[
-x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon
-]
+$$x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon$$
 
-where
+- $x_0$ — original image
+- $x_t$ — noisy image at timestep $t$
+- $\epsilon$ — Gaussian noise
 
-* (x_0) = original image
-* (x_t) = noisy image at timestep (t)
-* (\epsilon) = Gaussian noise
+**UNet Noise Predictor**
 
-A **cosine noise schedule** is used to control the noise variance.
+- Encoder–decoder backbone with skip connections
+- Residual blocks and GroupNorm
+- Self-attention in bottleneck
+- Predicts noise $\epsilon_\theta(x_t, t)$ using **MSE loss**
+
+**Training Pipeline**
+
+1. Sample image $x_0$ from CelebA
+2. Random timestep $t$
+3. Add noise with forward diffusion
+4. Predict noise using UNet
+5. Minimize $L = \|\epsilon - \epsilon_\theta(x_t, t)\|^2$
+
+**Sampling**
+
+Generates images by **iterative denoising from random noise**.
+
+### Phase 1 Results
+
+<p align="center">
+  <img src="assets/self_tried_training_result.png" width="450">
+</p>
+
+Intermediate outputs show abstract patterns before the model learns the full image distribution.
 
 ---
 
-### 2. UNet Noise Predictor
+## Phase 2 — RePaint Simplified Inpainting
 
-The model learns to predict the noise added to an image.
+Phase 2 builds on Phase 1 using **pretrained diffusion models** for **image inpainting**.
 
-Architecture features:
+### Features
 
-* UNet encoder–decoder backbone
-* sinusoidal timestep embeddings
-* residual blocks with GroupNorm
-* self-attention block in the bottleneck
-* skip connections between encoder and decoder
+- Fills **masked regions** in images
+- Uses **resampling during reverse diffusion** for improved quality
+- Code in `repaint_simplified/`
+- Masks in `repaint_simplified/data/masks/`
+- Pretrained weights folder is a placeholder (`.gitkeep`)
 
-The network predicts:
+### Running Inpainting
 
-[
-\epsilon_\theta(x_t, t)
-]
+```bash
+python repaint_simplified/sample_repaint.py
+```
 
-which is trained using **MSE loss** against the true noise.
+Results are saved in `repaint_simplified/assets/`.
 
----
+### Phase 2 Results
 
-### 3. Training Pipeline
+<p align="center">
+  <img src="assets/repaint_result_plot.png" width="200">
+  <img src="assets/repaint_result_plot1.png" width="200">
+  <img src="assets/repaint_result_plot2.png" width="200">
+  <img src="assets/repaint_result_plot3.png" width="200">
+  <img src="assets/repaint_result_plot4.png" width="200">
+  <img src="assets/repaint_result_plot5.png" width="200">
+  <img src="assets/repaint_result_plot6.png" width="200">
+</p>
 
-Training procedure:
-
-1. Sample an image (x_0) from CelebA
-2. Randomly sample timestep (t)
-3. Add noise using the forward diffusion equation
-4. Predict noise using the UNet
-5. Minimize
-
-[
-L = ||\epsilon - \epsilon_\theta(x_t, t)||^2
-]
-
-The model learns to **denoise images step-by-step**, enabling generation from pure noise.
+These images show how masked regions are filled using RePaint while preserving surrounding structure.
 
 ---
 
@@ -88,116 +105,71 @@ The model learns to **denoise images step-by-step**, enabling generation from pu
 
 ```
 .
-├── diffusion/
-│   ├── gaussian_diffusion.py
-│   └── scheduler.py
-│
-├── models/
-│   └── unet.py
-│
-├── utils/
-│   └── dataset.py
-│
-├── train.py
-├── sample.py
-├── celeba_download.py
-│
-├── data/            # placeholder for dataset
-├── checkpoints/     # placeholder for model checkpoints
-│
-└── assets/
-    ├── training_loss.png
-    └── ddpm_samples.png
+├── diffusion/           # DDPM forward/reverse diffusion code
+├── models/              # UNet architecture
+├── utils/               # Dataset loader
+├── train.py             # Phase 1 training
+├── sample.py            # Phase 1 sampling
+├── celeba_download.py   # Download CelebA dataset
+├── checkpoints/         # placeholder for model checkpoints
+├── data/                # placeholder for dataset
+├── assets/              # Phase 1 & Phase 2 outputs
+└── repaint_simplified/  # Phase 2 RePaint code
 ```
 
 ---
 
 ## Dataset
 
-Training was performed using the **CelebA dataset**, resized to **64×64 resolution**.
+- **Phase 1:** CelebA 64×64
+- **Phase 2:** Any images with masks in `repaint_simplified/data/masks/`
 
-To download the dataset:
+Download CelebA:
 
-```
+```bash
 python celeba_download.py
 ```
 
-Images are normalized to the range **[-1, 1]** before training.
-
 ---
 
-## Training
+## Dependencies & Training
 
 Install dependencies:
 
-```
+```bash
 pip install -r requirements.txt
 ```
 
-Run training:
+Phase 1 training:
 
-```
+```bash
 python train.py
 ```
 
-The model uses:
+Phase 2 inpainting:
 
-* cosine noise schedule
-* Adam optimizer
-* gradient accumulation
-* exponential moving average (EMA) weights
-
----
-
-## Sampling
-
-After training, images can be generated using:
-
-```
-python sample.py
+```bash
+python repaint_simplified/sample_repaint.py
 ```
 
-The sampling process performs **reverse diffusion**, starting from random Gaussian noise and iteratively denoising it to produce an image.
-
 ---
 
-## Results
+## Next Steps
 
-Due to limited compute resources, the model was trained for a relatively small number of epochs.  
-While the generated samples are not yet realistic, they demonstrate that the **diffusion training and sampling pipeline is functioning correctly**.
-
-The figure below shows a **4×4 grid of samples generated by the model during early training**. At this stage the outputs resemble abstract cloud-like or paint-like patterns, which is typical before the model learns the underlying image distribution.
-
-<p align="center">
-  <img src="assets/self_tried_training_result.png" width="450">
-</p>
-
-Additional experiment outputs and intermediate results can be found in the `assets/` directory.
-
----
-
-## Next Phase
-
-The next stage of this project explores **diffusion-based image inpainting using the RePaint algorithm**, which modifies the diffusion sampling process to condition on known image regions.
-
-This will involve:
-
-* integrating pretrained diffusion models
-* implementing RePaint resampling
-* generating inpainted images from masked inputs
+- Extend RePaint to higher resolution images
+- Experiment with different mask types
+- Integrate into real-world image restoration tasks
 
 ---
 
 ## Related Work
 
-This project builds on the concepts introduced in diffusion-based generative modeling literature, including:
-
-* *Denoising Diffusion Probabilistic Models*
-* *Improved DDPM*
-* *RePaint: Inpainting using Denoising Diffusion Models*
+- [Denoising Diffusion Probabilistic Models (DDPM)](https://arxiv.org/abs/2006.11239)
+- [Improved DDPM](https://arxiv.org/abs/2102.09672)
+- [RePaint: Inpainting using Denoising Diffusion Models](https://arxiv.org/abs/2201.09865)
 
 ---
 
 ## Author
 
-Independent exploration of diffusion-based generative modeling and image synthesis using PyTorch.
+Independent exploration of diffusion-based generative modeling and image inpainting using PyTorch.
