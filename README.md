@@ -88,13 +88,9 @@ Results are saved in `repaint_simplified/assets/`.
 ### Phase 2 Results
 
 <p align="center">
-  <img src="assets/repaint_result_plot.png" width="200">
-  <img src="assets/repaint_result_plot1.png" width="200">
-  <img src="assets/repaint_result_plot2.png" width="200">
-  <img src="assets/repaint_result_plot3.png" width="200">
-  <img src="assets/repaint_result_plot4.png" width="200">
-  <img src="assets/repaint_result_plot5.png" width="200">
-  <img src="assets/repaint_result_plot6.png" width="200">
+  <img src="assets/repaint_result_plot3.png" width="400">
+  <img src="assets/repaint_result_plot5.png" width="400">
+  <img src="assets/repaint_result_plot6.png" width="400">
 </p>
 
 These images show how masked regions are filled using RePaint while preserving surrounding structure.
