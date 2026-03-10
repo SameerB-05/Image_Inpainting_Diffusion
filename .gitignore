@@ -36,6 +36,7 @@ repaint_simplified/pretrained_weights/*
 # Plots (optional)
 assets/*.png
 !assets/repaint_result_plot3.png
+!assets/repaint_result_plot4.png
 !assets/repaint_result_plot5.png
 !assets/repaint_result_plot6.png
 
