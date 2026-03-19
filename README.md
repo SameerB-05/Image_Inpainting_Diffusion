@@ -158,7 +158,9 @@ where $\epsilon \sim \mathcal{N}(0, I)$.
 
 A **cosine noise schedule** is used:
 
-$$\bar{\alpha}_t = \cos^2\!\left(\frac{t/T + s}{1+s} \cdot \frac{\pi}{2}\right)$$
+$$
+\bar{\alpha}_t = \cos^2\left(\frac{t/T + s}{1+s} \cdot \frac{\pi}{2}\right)
+$$
 
 with $s = 0.008$, $T = 1000$.
 
@@ -166,7 +168,7 @@ Buffers stored in the model: `beta`, `alpha`, `alpha_cumprod`, `alpha_cumprod_pr
 
 #### Training Objective
 
-$$\mathcal{L} = \mathbb{E}_{x_0,\,t,\,\epsilon}\!\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
+$$\mathcal{L} = \mathbb{E}_{x_0,\,t,\,\epsilon}\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
 
 Implemented as `MSELoss(predicted_noise, true_noise)`.
 
@@ -310,7 +312,7 @@ $$x_{t-1}^{\text{unknown}} \sim p_\theta(x_{t-1} \mid x_t)$$
 
 Known pixels are sampled from the forward diffusion distribution of the ground truth at timestep $t$:
 
-$$x_{t-1}^{\text{known}} \sim \mathcal{N}\!\left(\sqrt{\bar{\alpha}_t}\,x_0,\;(1-\bar{\alpha}_t)I\right)$$
+$$x_{t-1}^{\text{known}} \sim \mathcal{N}\left(\sqrt{\bar{\alpha}_t}\,x_0,\;(1-\bar{\alpha}_t)I\right)$$
 
 > **Key design choice:** Rather than copying clean ground-truth pixels directly, known pixels are sampled from the forward diffusion distribution at the current noise level. This ensures both regions share consistent noise statistics at every timestep.
 
@@ -328,7 +330,7 @@ x = mask * noisy_gt + (1 - mask) * x
 
 Direct conditioning can produce locally plausible but globally inconsistent results (e.g., texture misalignment at boundaries). RePaint addresses this by diffusing $x_{t-1}$ forward one step:
 
-$$x_t \sim \mathcal{N}\!\left(\sqrt{1-\beta_t}\,x_{t-1},\;\beta_t I\right)$$
+$$x_t \sim \mathcal{N}\left(\sqrt{1-\beta_t}\,x_{t-1},\;\beta_t I\right)$$
 
 ...then denoising again. This loop runs $U$ times per timestep, giving the model multiple opportunities to reconcile generated content with the known context.
 
