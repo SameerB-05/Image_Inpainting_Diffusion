@@ -39,6 +39,7 @@ def repaint_sample(
     num_steps=250,
     jump_length=10,
     jump_n_sample=10,
+    return_frames=False
 ):
 
     B, C, H, W = gt.shape
@@ -53,6 +54,7 @@ def repaint_sample(
     # Generate RePaint timestep schedule
     ts = get_schedule(num_steps, jump_length, jump_n_sample)
 
+    frames = [] if return_frames else None
  
     # Diffusion sampling
     for i in tqdm(range(len(ts) - 1), desc="RePaint Sampling"):
@@ -85,5 +87,11 @@ def repaint_sample(
             noise = torch.randn_like(x)
 
             x = torch.sqrt(1 - beta) * x + torch.sqrt(beta) * noise
-
-    return x
+        
+        if return_frames:
+            frames.append(x.clone())
+    
+    if return_frames:
+        return x, ts, frames
+    else:
+        return x, ts
