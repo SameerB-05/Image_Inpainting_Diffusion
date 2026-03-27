@@ -31,7 +31,7 @@ def build_model(device):
         attention_resolutions="32,16,8",
         channel_mult="1,1,2,2,4,4",
         resblock_updown=True,
-        class_cond=True,
+        class_cond=False,
         learn_sigma=True,
         diffusion_steps=1000,
         noise_schedule="linear",
@@ -40,7 +40,7 @@ def build_model(device):
 
     model, diffusion = create_model_and_diffusion(**defaults)
 
-    weight_path = Path("repaint_simplified/pretrained_weights/256x256_diffusion.pt")
+    weight_path = Path("repaint_simplified/pretrained_weights/256x256_diffusion_uncond.pt")
 
     model.load_state_dict(
         torch.load(weight_path, map_location=device, weights_only=True)
