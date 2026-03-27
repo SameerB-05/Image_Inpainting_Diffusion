@@ -140,7 +140,7 @@ def main():
         attention_resolutions="32,16,8",
         channel_mult="1,1,2,2,4,4",
         resblock_updown=True,
-        class_cond=True,
+        class_cond=False,
         learn_sigma=True,
         diffusion_steps=1000,
         noise_schedule="linear",
@@ -150,7 +150,7 @@ def main():
     model, diffusion = create_model_and_diffusion(**defaults)
 
 
-    weight_path = Path("repaint_simplified/pretrained_weights/256x256_diffusion.pt")
+    weight_path = Path("repaint_simplified/pretrained_weights/256x256_diffusion_uncond.pt")
 
     model.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True))
     model.to(device)
@@ -163,8 +163,8 @@ def main():
     gt_folder = Path("repaint_simplified/data/gt")
     gt_files = list(gt_folder.glob("*.png"))
 
-    gt_path = random.choice(gt_files)
-    #gt_path = Path(r"C:\Users\samee\Documents\GitHub_Repos\Image_Inpainting_Diffusion\repaint_simplified\data\gt\inet_0009.png")
+    #gt_path = random.choice(gt_files)
+    gt_path = Path(r"C:\Users\samee\Documents\GitHub_Repos\Image_Inpainting_Diffusion\repaint_simplified\data\gt\inet_0000.png")
     print("Selected GT:", gt_path.name)
 
     gt = load_image(gt_path, image_size).to(device)
@@ -174,8 +174,8 @@ def main():
     mask_folder = Path("repaint_simplified/data/masks")
     mask_files = list(mask_folder.glob("*.png"))
 
-    mask_path = random.choice(mask_files)
-    #mask_path = Path(r"C:\Users\samee\Documents\GitHub_Repos\Image_Inpainting_Diffusion\repaint_simplified\data\masks\000061.png")
+    #mask_path = random.choice(mask_files)
+    mask_path = Path(r"C:\Users\samee\Documents\GitHub_Repos\Image_Inpainting_Diffusion\repaint_simplified\data\masks\000010.png")
     print("Selected mask:", mask_path.name)
 
     mask = load_mask(mask_path, image_size).to(device)

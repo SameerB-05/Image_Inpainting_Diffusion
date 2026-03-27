@@ -46,13 +46,16 @@ def repaint_sample(
 
     #y = torch.zeros(B, dtype=torch.long, device=device)
     #y = None
-    y = torch.randint(0, 1000, (B,), device=device)
+    #y = torch.randint(0, 1000, (B,), device=device)
 
     x = torch.randn(B, C, H, W, device=device)
 
  
     # Generate RePaint timestep schedule
-    ts = get_schedule(num_steps, jump_length, jump_n_sample)
+    T = len(diffusion.betas)
+    ts = get_schedule(T, jump_length, jump_n_sample)
+
+    is_ddpm = (jump_length == 1 and jump_n_sample == 1)
 
     frames = [] if return_frames else None
  
@@ -62,32 +65,46 @@ def repaint_sample(
         t = ts[i]
         t_next = ts[i + 1]
 
+        # stop condition
         if t_next < 0:
             break
+
+        # safety check (prevents CUDA assert crashes)
+        if t < 0 or t >= diffusion.num_timesteps:
+            print("Invalid t:", t)
+            continue
+        if t_next >= diffusion.num_timesteps:
+            print("Invalid t_next:", t_next)
+            continue
 
         t_tensor = torch.tensor([t] * B, device=device)
 
 
-        # Reverse diffusion step
-        if t_next < t:
-
-            out = diffusion.p_sample(model, x, t_tensor, model_kwargs={"y": y})
+        # PURE DDPM MODE
+        if is_ddpm:
+            out = diffusion.p_sample(model, x, t_tensor, model_kwargs=None)
             x = out["sample"]
 
             # enforce known region
             noisy_gt = diffusion.q_sample(gt, t_tensor)
             x = mask * noisy_gt + (1 - mask) * x
 
- 
-        # Forward diffusion (resampling)
+        # REPAINT MODE
         else:
+            # Reverse diffusion
+            if t_next < t:
+                out = diffusion.p_sample(model, x, t_tensor, model_kwargs=None)
+                x = out["sample"]
 
-            beta = torch.tensor(diffusion.betas[t_next], device=x.device)
+                noisy_gt = diffusion.q_sample(gt, t_tensor)
+                x = mask * noisy_gt + (1 - mask) * x
 
-            noise = torch.randn_like(x)
+            # Forward diffusion (resampling)
+            else:
+                beta = torch.tensor(diffusion.betas[t_next], device=x.device)
+                noise = torch.randn_like(x)
+                x = torch.sqrt(1 - beta) * x + torch.sqrt(beta) * noise
 
-            x = torch.sqrt(1 - beta) * x + torch.sqrt(beta) * noise
-        
         if return_frames:
             frames.append(x.clone())
     
