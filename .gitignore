@@ -53,6 +53,8 @@ Thumbs.db
 
 # Outputs folder content
 outputs/*
+!outputs/result_plots/
+!outputs/schedule_plots/
 !outputs/.gitkeep
 
 # Temporary / misc
