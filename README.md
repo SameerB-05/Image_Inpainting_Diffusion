@@ -240,7 +240,7 @@ python repaint_simplified/run_experiment.py \
 The inpainting results demonstrate strong semantic coherence between generated and known regions — textures, lighting, and structure align naturally at mask boundaries without any model finetuning. This is the direct effect of the resampling jump schedule.
 
 <p align="center">
-  <img src="assets/repaint_result_plot3.png" width="380">
+  <img src="assets/repaint_result_plot8.png" width="380">
   <img src="assets/repaint_result_plot4.png" width="380">
 </p>
 
