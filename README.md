@@ -84,7 +84,7 @@ The UNet predicts the noise component; the reverse posterior is sampled via the 
 
 Rather than inserting clean ground-truth pixels — which would create a noise-level mismatch with the generated region — known pixels are noised to the current timestep $t$ using the forward process:
 
-$$x_{t-1}^{\text{known}} = \text{q\_sample}(x_0, t) = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon$$
+$$x_{t-1}^{\text{known}} = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon$$
 
 ```python
 noisy_gt = diffusion.q_sample(gt, t_tensor)
