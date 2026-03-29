@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from repaint_sampler import get_schedule
+from pathlib import Path
 
 
 def plot_schedule(t_T=250, jump_length=10, jump_n_sample=10):
@@ -17,7 +18,10 @@ def plot_schedule(t_T=250, jump_length=10, jump_n_sample=10):
 
     plt.grid()
 
-    plt.savefig("outputs/schedule_plot.png")
+    save_dir = Path("outputs/schedule_plots")
+    save_dir.mkdir(exist_ok=True)
+
+    plt.savefig(f"{save_dir}/{t_T}_{jump_length}_{jump_n_sample}.png")
     plt.show()
 
     print(f"Total iterations: {len(ts)}")
