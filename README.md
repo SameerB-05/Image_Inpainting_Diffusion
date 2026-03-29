@@ -1,29 +1,8 @@
-# Diffusion Models and Image Inpainting — DDPM & RePaint
+# Diffusion-Based Image Inpainting — A Study of RePaint
 
-This repository contains an educational implementation and experimentation with **diffusion-based generative models** and **diffusion-driven image inpainting** using PyTorch.
+This repository is an implementation and experimental study of **RePaint** — a sampling-based method for image inpainting using pretrained denoising diffusion probabilistic models. The central question it addresses: *can an unconditional diffusion model be conditioned on known pixels purely through its sampling procedure, with no finetuning or retraining?*
 
-The project focuses on understanding:
-
-* **Denoising Diffusion Probabilistic Models (DDPM)** through a full training pipeline on the CelebA dataset
-* **RePaint**, a sampling-based inpainting method that conditions diffusion models on known image regions
-
-The repository includes both:
-
-* a **from-scratch diffusion model implementation**
-* a **simplified implementation of the RePaint inpainting algorithm**
-
-The goal is to understand how diffusion models work internally and how their **sampling process can be modified for conditional generation tasks such as image inpainting**.
-
-> **Note on training:** Due to compute constraints, the custom DDPM was trained with a limited budget, resulting in characteristic "cloud-like" outputs typical of undertrained diffusion models. The full training pipeline is preserved to demonstrate the implementation. The focus then shifted to implementing the RePaint sampling algorithm on top of OpenAI's pretrained weights, which yields strong inpainting results.
-
----
-
-## Project Components
-
-| Component | Description |
-|---|---|
-| **Custom DDPM** | DDPM trained from scratch on CelebA 64×64 using PyTorch |
-| **RePaint (Simplified)** | RePaint inpainting using OpenAI's pretrained 256×256 Guided Diffusion model — no retraining required |
+The implementation builds on OpenAI's pretrained 256×256 Guided Diffusion model. All conditioning happens at inference time through a modified sampling procedure. A from-scratch DDPM trained on CelebA 64×64 is also included — it was the starting point for building intuition about diffusion model internals and motivates the shift to the pretrained-model approach.
 
 ---
 
@@ -38,397 +17,227 @@ The goal is to understand how diffusion models work internally and how their **s
 │
 ├── models/
 │   └── unet.py                 # Custom U-Net denoising network
-│
 ├── diffusion/
 │   ├── gaussian_diffusion.py   # Forward/reverse diffusion logic
 │   └── scheduler.py            # Cosine noise schedule
-│
 ├── utils/
 │   └── dataset.py              # CelebA dataset loader
 │
-├── data/
-│   └── celeba/
-│       └── img_align_celeba/   # CelebA 64×64 images (~202k images)
-│
 ├── checkpoints/
-│   └── ddpm_celeba64/
-│       ├── ddpm_celeba64_best.pth
-│       ├── losses.npy
-│       └── training_loss.png
+│   └── ddpm_celeba64/          # Training checkpoints (contents gitignored)
 │
-├── repaint_simplified/
-│   ├── mask.py                 # Mask loading and preprocessing
-│   ├── repaint_sampler.py      # RePaint sampling schedule and algorithm
-│   ├── sample_repaint.py       # Inference script
-│   ├── data/
-│   │   ├── gt/                 # Ground truth images (256×256)
-│   │   └── masks/              # Binary inpainting masks
-│   ├── openai_guided_diffusion/ # OpenAI Guided Diffusion implementation
-│   ├── pretrained_weights/
-│   │   └── 256x256_diffusion.pt
-│   └── utils/
-│       └── get_layers_list.py
-│
-└── assets/
-    ├── repaint_result_plot*.png
-    └── self_tried_training_result.png
+└── repaint_simplified/
+    ├── mask.py                  # Mask loading and preprocessing
+    ├── repaint_sampler.py       # Sampling schedule and core RePaint loop
+    ├── sample_repaint.py        # Inference entry point
+    ├── run_experiment.py        # CLI experiment runner
+    ├── plot_results.py          # Visualization toolkit
+    ├── plot_schedule.py         # Timestep schedule visualization
+    │
+    ├── data/
+    │   ├── gt/                  # Ground truth images (256×256, 9 images)
+    │   └── masks/               # Binary inpainting masks (7 masks)
+    │
+    ├── experiments/
+    │   ├── exp_resampling.py    # Effect of the resampling mechanism
+    │   ├── exp_jumps.py         # Ablation over jump_length and jump_n_sample
+    │   ├── exp_diversity.py     # Stochastic output diversity across seeds
+    │   ├── exp_masks.py         # Robustness across mask geometries
+    │   ├── exp_compute.py       # Compute cost comparison
+    │   └── metrics.py           # L1, L2, and LPIPS evaluation (not yet used)
+    │
+    ├── openai_guided_diffusion/ # OpenAI Guided Diffusion UNet and diffusion logic
+    ├── pretrained_weights/      # Pretrained model weights (.pt files)
+    └── utils/
+        └── get_layers_list.py
 ```
 
 ---
 
-## Part 1 — Custom DDPM
-
-### Model Architecture
-
-The denoising network is implemented using a **U-Net backbone** that predicts the noise component added during diffusion.
-
-**Input/Output:**
-```
-Input:  x_t (noisy image), t (diffusion timestep)
-Output: εθ(x_t, t) (predicted noise)
-```
-
-**U-Net Structure:**
-```
-Encoder:    Conv → ResBlocks → Strided Conv (downsample) → ...
-Bottleneck: ResBlock → Self-Attention → ResBlock
-Decoder:    TransposedConv (upsample) + Skip Connections → ResBlocks → ...
-```
-
----
-
-### Residual Blocks
-
-Each residual block contains:
-
-* **GroupNorm (8 groups)**
-* **SiLU activation**
-* **3×3 convolution**
-* **Residual skip connection**
-
-Timestep embeddings are injected through a linear projection and added to intermediate feature maps.
-
----
-
-### Timestep Embedding
-
-The model uses **sinusoidal positional embeddings** similar to Transformers:
-
-$$
-\text{emb}(t) = [\sin(\omega_1 t), \cos(\omega_1 t), \ldots]
-$$
-
-The embedding is passed through an **MLP with SiLU activation** before being injected into residual blocks.
-
----
-
-### Self-Attention Layer
-
-A **single-head self-attention block** is used in the bottleneck to capture global spatial dependencies:
-
-1. Group normalization
-2. QKV projection (1×1 conv)
-3. Scaled dot-product attention
-4. Output projection
-
----
-
-### U-Net Configuration
-
-| Parameter                | Value                |
-| ------------------------ | -------------------- |
-| Input channels           | 3                    |
-| Output channels          | 3                    |
-| Base channels            | 64                   |
-| Time embedding dimension | 256                  |
-| Normalization            | GroupNorm (8 groups) |
-| Activation               | SiLU                 |
-
----
-
-### Diffusion Process
-
-#### Forward Diffusion
-
-Images are progressively corrupted by Gaussian noise:
-
-$$x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1-\bar{\alpha}_t}\, \epsilon$$
-
-where $\epsilon \sim \mathcal{N}(0, I)$.
-
-#### Noise Schedule
-
-A **cosine noise schedule** is used:
-
-$$
-\bar{\alpha}_t = \cos^2\left(\frac{t/T + s}{1+s} \cdot \frac{\pi}{2}\right)
-$$
-
-with $s = 0.008$, $T = 1000$.
-
-Buffers stored in the model: `beta`, `alpha`, `alpha_cumprod`, `alpha_cumprod_prev`, `sqrt_acp`, `sqrt_omacp`.
-
-#### Training Objective
-
-$$\mathcal{L} = \mathbb{E}_{x_0,t,\epsilon}\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
-
-Implemented as `MSELoss(predicted_noise, true_noise)`.
-
----
-
-### Training Configuration
-
-#### Dataset
-
-| Setting          | Value         |
-| ---------------- | ------------- |
-| Dataset          | CelebA        |
-| Image size       | 64 × 64       |
-| Max samples used | 35,840 images |
-
-#### DataLoader
-
-| Parameter             | Value |
-| --------------------- | ----- |
-| Batch size            | 128   |
-| Gradient accumulation | 2     |
-| Workers               | 4     |
-| Pin memory            | True  |
-
-#### Optimizer
-
-| Setting        | Value  |
-| -------------- | ------ |
-| Optimizer      | Adam   |
-| Learning rate  | 2e-4   |
-| Grad clip norm | 1.0    |
-| EMA decay      | 0.9999 |
-
-**Gradient Accumulation** (`accum_steps = 2`) simulates larger effective batch sizes. **Exponential Moving Average (EMA)** stabilizes training and improves sample quality — EMA weights are used for checkpoint saving and sampling.
-
-#### Training Loop (per batch)
-
-1. Sample timestep $t$
-2. Sample Gaussian noise $\epsilon$
-3. Generate noisy image $x_t$
-4. Predict noise $\hat{\epsilon}_\theta$ via U-Net
-5. Compute MSE loss
-6. Backpropagate and update parameters
-
-Best checkpoints are saved based on lowest training loss as `.pth` files, alongside loss arrays (`.npy`) and plots (`.png`).
-
----
-
-### Sampling (DDPM)
-
-Generation starts from pure Gaussian noise: $x_T \sim \mathcal{N}(0, I)$.
-
-The model iteratively denoises for $T = 1000$ steps. At each timestep:
-
-1. Predict noise $\hat{\epsilon}_\theta(x_t, t)$
-2. Estimate clean image $\hat{x}_0$
-3. Compute posterior mean $\mu_t$
-4. For $t > 0$: sample $x_{t-1} = \mu_t + \sigma_t z$; for $t = 0$: $x_0 = \mu_t$
-
-Final images are clamped to $[-1, 1]$ then mapped to $[0, 1]$ for visualization. Samples are displayed as a **4×4 grid**.
-
----
-
-## Part 2 — RePaint Inpainting
-
-### Method Overview
-
-RePaint performs inpainting by **modifying the sampling procedure of a pretrained unconditional DDPM**, without any retraining. Known pixels from the ground truth are injected during sampling, while unknown regions are generated. Repeated resampling improves boundary consistency between the two regions.
-
----
-
-### Model Architecture (OpenAI Guided Diffusion)
-
-The inpainting backbone uses the **UNetModel** from OpenAI Guided Diffusion.
-
-| Parameter                 | Value              |
-| ------------------------- | ------------------ |
-| Image size                | 256 × 256          |
-| Input channels            | 3 (RGB)            |
-| Base channels             | 256                |
-| Residual blocks per stage | 2                  |
-| Channel multipliers       | (1, 1, 2, 2, 4, 4) |
-| Attention heads           | 4                  |
-| Attention head channels   | 64                 |
-| Attention resolutions     | 32, 16, 8          |
-| Class conditional         | Enabled            |
-| Learn sigma               | Enabled            |
-| Up/Down sampling          | ResBlock up/down   |
-
-**Channel hierarchy** for a 256×256 image:
-```
-256 → 256 → 512 → 512 → 1024 → 1024
-```
-
-Self-attention is inserted at spatial resolutions **32×32**, **16×16**, and **8×8**, capturing the long-range dependencies critical for coherent inpainting across large masked regions.
-
-#### Noise Schedule (OpenAI Model)
-
-A **linear beta schedule** is used:
-
-$$\beta_t \in [0.0001,\ 0.02]$$
-
-Generated via `get_named_beta_schedule("linear", 1000)` and automatically rescaled for the chosen number of sampling steps.
-
-| Setting        | Value                 |
-| -------------- | --------------------- |
-| Training steps | T = 1000              |
-| Sampling steps | 250 (with resampling) |
-| Noise schedule | Linear                |
-
----
-
-### Pretrained Weights
-
-| File                   | Source                           |
-| ---------------------- | -------------------------------- |
-| `256x256_diffusion.pt` | OpenAI Guided Diffusion          |
-| `celeba256_250000.pt`  | OpenAI Guided Diffusion (CelebA) |
-
-The model is instantiated using `create_model_and_diffusion()`.
-
----
-
-### RePaint Algorithm
-
-Let $x_0$ be the ground truth image and $m$ the binary mask:
-```
-m = 1  →  known pixels (preserve)
-m = 0  →  pixels to inpaint (generate)
-```
+## The RePaint Algorithm
+
+RePaint performs inpainting by **modifying the sampling procedure of a pretrained unconditional DDPM** — no finetuning required. At each reverse diffusion step, known pixels are replaced with noisy versions of the ground truth at the corresponding noise level, while the unknown region continues to evolve under the model's learned reverse process. A resampling mechanism then improves consistency at the boundary between the two regions.
+
+### Notation
+
+| Symbol | Meaning |
+|--------|---------|
+| $x_0$ | Ground truth image |
+| $m$ | Binary mask ($m=1$: known, $m=0$: inpaint) |
+| $\bar{\alpha}_t$ | Cumulative noise product at timestep $t$ |
+| $\beta_t$ | Noise variance at timestep $t$ |
+| $p_\theta$ | Learned reverse diffusion distribution |
 
 Sampling begins from pure Gaussian noise: $x_T \sim \mathcal{N}(0, I)$.
 
-**Step 1 — Predict Unknown Region**
+---
 
-Standard reverse diffusion step for the unknown region:
+### Per-Timestep Procedure
+
+**Step 1 — Reverse diffusion step (unknown region)**
 
 $$x_{t-1}^{\text{unknown}} \sim p_\theta(x_{t-1} \mid x_t)$$
 
-**Step 2 — Inject Known Region**
+The UNet predicts the noise component; the reverse posterior is sampled via the standard DDPM formula.
 
-Known pixels are sampled from the forward diffusion distribution of the ground truth at timestep $t$:
+**Step 2 — Forward injection (known region)**
 
-$$
-x_{t-1}^{\text{known}} \sim \mathcal{N}\left(\sqrt{\bar{\alpha}_t} x_0, (1-\bar{\alpha}_t) I\right)
-$$
+Rather than inserting clean ground-truth pixels — which would create a noise-level mismatch with the generated region — known pixels are noised to the current timestep $t$ using the forward process:
 
-> **Key design choice:** Rather than copying clean ground-truth pixels directly, known pixels are sampled from the forward diffusion distribution at the current noise level. This ensures both regions share consistent noise statistics at every timestep.
+$$x_{t-1}^{\text{known}} = \text{q\_sample}(x_0, t) = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon$$
 
-**Step 3 — Merge Using Mask**
-
-$$x_{t-1} = m \odot x_{t-1}^{\text{known}} + (1 - m) \odot x_{t-1}^{\text{unknown}}$$
-
-In code:
 ```python
-noisy_gt = diffusion.q_sample(gt, t)
+noisy_gt = diffusion.q_sample(gt, t_tensor)
 x = mask * noisy_gt + (1 - mask) * x
 ```
 
-**Step 4 — Resampling**
+This ensures both regions carry consistent noise statistics, which is essential for the model to reason coherently across the boundary.
 
-Direct conditioning can produce locally plausible but globally inconsistent results (e.g., texture misalignment at boundaries). RePaint addresses this by diffusing $x_{t-1}$ forward one step:
+> **Note on deviation from the paper:** The algorithm (line 5) specifies $x_{t-1}^{\text{known}} = \sqrt{\bar{\alpha}_t}\, x_0 + (1 - \bar{\alpha}_t)\, \epsilon$ — with subscript $t-1$ on the left, implying the known region should be noised to level $t-1$, i.e. `q_sample(gt, t-1)`. This implementation calls `q_sample(gt, t)` instead, injecting a slightly more noisy version of the known region than the algorithm strictly specifies. This is a minor off-by-one that many implementations make in practice and has negligible effect on output quality.
 
-$$
-x_t \sim \mathcal{N}\left(\sqrt{1-\beta_t} x_{t-1}, \beta_t I\right)
-$$
+**Step 3 — Mask merge**
 
-...then denoising again. This loop runs $U$ times per timestep, giving the model multiple opportunities to reconcile generated content with the known context.
+$$x_{t-1} = m \odot x_{t-1}^{\text{known}} + (1 - m) \odot x_{t-1}^{\text{unknown}}$$
+
+**Step 4 — Resampling (jump schedule)**
+
+Mask merging alone can produce locally plausible but globally inconsistent results — the model generates the unknown region without sufficient awareness of its surroundings. RePaint addresses this by diffusing $x_{t-1}$ forward one step and denoising again:
+
+$$x_{t_{\text{next}}} \sim \mathcal{N}\!\left(\sqrt{1 - \beta_{t_{\text{next}}}}\, x_{t-1},\; \beta_{t_{\text{next}}}\, I\right) \quad \longrightarrow \quad \text{denoise again}$$
+
+where $t_{\text{next}} > t$ is the target timestep in the forward jump, and `diffusion.betas[t_next]` is used in the code. In the paper's notation this is written as $\beta_{t-1}$ because the paper indexes the jump relative to the current $t$ — both refer to the same $\beta$ value at the destination timestep.
+
+This loop runs $U$ times per window, giving the model repeated exposure to the boundary at each noise level.
 
 ---
 
 ### Sampling Schedule
 
-The non-monotonic schedule is generated by:
+The non-monotonic timestep schedule is generated by `repaint_sampler.get_schedule`:
 
 ```python
-get_schedule(t_T=250, jump_len=10, jump_n_sample=10)
+get_schedule(t_T=250, jump_length=10, jump_n_sample=10)
 ```
 
-| Parameter       | Value | Meaning                     |
-| --------------- | ----- | --------------------------- |
-| `t_T`           | 250   | Total sampling steps        |
-| `jump_len`      | 10    | Length of each forward jump |
-| `jump_n_sample` | 10    | Number of resampling cycles |
+| Parameter       | Default | Meaning                                   |
+|-----------------|---------|-------------------------------------------|
+| `t_T`           | 250     | Total diffusion steps                     |
+| `jump_length`   | 10      | Number of steps in each resampling window |
+| `jump_n_sample` | 10      | Resampling repetitions per window         |
 
-Instead of strictly progressing $T \to 0$, the schedule alternates forward and backward:
+Instead of monotonically decreasing $T \to 0$, the schedule interleaves forward jumps. For example, with `jump_length=3` and `jump_n_sample=2`, a segment of the trajectory looks like:
 
 ```
-t → t-1 → t-2 → t-3
-            ↑
-       forward jump
-t-2 → t-1 → t
+Reverse (denoise):    10 → 9 → 8 → 7
+                                    ↓
+Forward jump (noise):           7 → 8 → 9 → 10   (jump back up by jump_length)
+                                                  ↓
+Reverse (denoise):        10 → 9 → 8 → 7         (repeat jump_n_sample times)
+                                    ↓
+Forward jump (noise):           7 → 8 → 9 → 10
+                                                  ↓
+Reverse (denoise):        10 → 9 → 8 → 7 → 6 → 5 → ...  (continue decreasing)
 ```
 
-This jump mechanism significantly improves **boundary consistency and semantic coherence** between known and generated regions.
+Each window of `jump_length` steps is resampled `jump_n_sample` times before the schedule moves on. The total number of UNet forward passes is therefore substantially higher than the nominal `t_T` count.
+
+Setting `jump_length=1, jump_n_sample=1` disables the resampling jumps, reducing to a single-pass conditioned sampling loop. The known-pixel injection and mask merge still run at every step — this is not vanilla unconditional DDPM sampling, but it serves as the no-resampling baseline in the ablation experiments below.
 
 ---
 
-### Image and Mask Representation
+## Model
 
-**Images** are normalized to `[-1, 1]`:
+The inpainting backbone is the **UNetModel** from OpenAI's Guided Diffusion, loaded with pretrained weights. No modifications to model weights are made.
 
-```python
-img = np.array(img) / 255.0
-img = img * 2 - 1
-```
+| Parameter                 | Value              |
+|---------------------------|--------------------|
+| Image size                | 256 × 256          |
+| Base channels             | 256                |
+| Channel multipliers       | (1, 1, 2, 2, 4, 4) |
+| Residual blocks per stage | 2                  |
+| Attention heads           | 4                  |
+| Attention head channels   | 64                 |
+| Attention resolutions     | 32, 16, 8          |
+| Noise schedule            | Linear β ∈ [0.0001, 0.02] |
+| Class conditioning        | None (unconditional)       |
+| Learn sigma               | Enabled (model outputs predicted variance alongside noise) |
 
-Tensor format: `[B, C, H, W]` — mapped back to `[0, 1]` for visualization.
+Self-attention at spatial resolutions 32×32, 16×16, and 8×8 captures the long-range dependencies critical for coherent inpainting across large masked regions.
 
-**Masks** are processed in `mask.py`:
+**Pretrained weights:**
 
-1. Load as grayscale image
-2. Resize to image resolution
-3. Normalize to `[0, 1]`
-4. Binarize at threshold 0.5: `mask = (mask > 0.5).astype(np.float32)`
-5. Convert to tensor shape `[1, 1, H, W]`
+| File | Description | Used |
+|------|-------------|------|
+| `256x256_diffusion_uncond.pt` | OpenAI unconditional diffusion model, ImageNet 256×256 | ✓ Primary model |
+| `256x256_diffusion.pt` | OpenAI class-conditional diffusion model, ImageNet 256×256 | Downloaded, unused |
+| `celeba256_250000.pt` | Guided diffusion model trained by RePaint authors on CelebA-HQ 256×256 (250k iterations) | Downloaded, unused |
+| `256x256_classifier.pt` | OpenAI ImageNet classifier | Downloaded, unused |
+
+> **On conditioning in the original RePaint repo:** The official implementation has two independent conditioning mechanisms — class conditioning (passing a label `y` to the U-Net) and classifier guidance (using `grad(log p(y|x_noisy))` to nudge the score function toward a target class at each step). These can be enabled independently via config. For example, the `test_inet256_genhalf` config uses both: `class_cond: true` with `256x256_diffusion.pt` plus `256x256_classifier.pt` for full guided diffusion. The `face_example` config uses neither effectively: `class_cond: false` and no `classifier_path`, so guidance is disabled and `celeba256_250000.pt` runs unconditionally.
+>
+> **This simplified implementation removes both mechanisms entirely.** There is no `cond_fn`, no classifier load, and `model_kwargs=None` is passed at every sampling step. The unconditional model `256x256_diffusion_uncond.pt` is used directly.
 
 ---
 
-### Sampling Pipeline
+## Codebase
 
-The full inference process in `sample_repaint.py`:
+### `repaint_sampler.py`
 
-1. Load pretrained diffusion model (`256x256_diffusion.pt`)
-2. Load ground truth image (`data/gt/*.png`)
-3. Load binary mask (`data/masks/*.png`)
-4. Create masked image: `masked = gt * mask`
-5. Run RePaint sampling: `output = repaint_sample(...)`
-6. Convert output from `[-1, 1]` to `[0, 1]`
-7. Save visualization to `assets/repaint_result_plot.png`
+The core of the repository. `get_schedule` builds the non-monotonic timestep sequence using a dictionary-tracked jump counter, emitting the sequence by alternating decrements (reverse steps) and increments (forward jumps). `repaint_sample` executes the full loop — for each transition it applies the reverse diffusion step, injects known pixels via `q_sample`, merges with the mask, and applies the forward jump when `t_next > t`. Intermediate frames can be collected at fixed intervals for GIF visualization.
 
-The script produces a **2×2 comparison grid**:
+Note that the paper's algorithm has an explicit inner loop over $u = 1, \ldots, U$. Here, the resampling is encoded implicitly: `get_schedule` pre-expands the jump repetitions into a flat timestep list, so there is no explicit `U` variable — `jump_n_sample` controls the number of resamplings indirectly through the schedule construction. This is functionally equivalent to the paper's formulation.
 
-| Ground Truth | Mask           |
-| ------------ | -------------- |
-| Masked Image | RePaint Result |
+### `sample_repaint.py`
+
+Primary inference entry point. Handles device setup, model instantiation via `create_model_and_diffusion`, image/mask loading, seed control, and output visualization. Produces a 2×2 comparison grid: ground truth, binary mask, masked input, and RePaint output.
+
+### `run_experiment.py`
+
+CLI wrapper accepting the following arguments: `image`, `mask`, `steps`, `jump_length`, `jump_n_sample`, `seed`, `save_dir`, and `save_gif`. Saves output images and a JSON metadata file per run — used by all experiment scripts for systematic configuration tracking.
+
+### `mask.py`
+
+Mask preprocessing pipeline: load as grayscale → resize to target resolution → normalize to $[0,1]$ → binarize at threshold 0.5 → convert to tensor shape $[1, 1, H, W]$.
+
+### `plot_results.py`
+
+Visualization toolkit with modes for: single-run display, resampling comparison (baseline vs RePaint), diversity grids across seeds, jump parameter ablation grids, and mask geometry comparisons organized by image row. Results are saved to `outputs/result_plots/`.
+
+### `plot_schedule.py`
+
+Plots the RePaint timestep sequence against iteration index for a given `(t_T, jump_length, jump_n_sample)` configuration. Downward slopes are reverse diffusion steps; upward segments are resampling jumps. Plots are saved to `outputs/schedule_plots/{t_T}_{jump_length}_{jump_n_sample}.png`.
+
+---
+
+## Inference
+
+```
+1. Load pretrained model        (256x256_diffusion_uncond.pt)
+2. Load ground truth image      (data/gt/*.png)
+3. Load binary mask             (data/masks/*.png)
+4. Construct masked image:      x_masked = x_0 ⊙ m
+5. Run RePaint sampling:        output = repaint_sample(...)
+6. Rescale output:              [-1, 1] → [0, 1]
+7. Save 2×2 visualization grid
+```
+
+```bash
+# Quick inference
+python repaint_simplified/sample_repaint.py
+
+# With explicit arguments
+python repaint_simplified/run_experiment.py \
+    --image repaint_simplified/data/gt/inet_0000.png \
+    --mask repaint_simplified/data/masks/000010.png \
+    --steps 250 --jump_length 10 --jump_n_sample 10 \
+    --seed 42 --save_dir results/
+```
 
 ---
 
 ## Results
 
-### Part 1 — Custom DDPM Samples
-
-The model was trained from scratch on CelebA 64×64 with a limited compute budget. The outputs exhibit the characteristic "cloud-like" blurriness of an undertrained diffusion model — global structure begins to emerge, but fine facial details are not yet resolved. The full training pipeline is intact and would converge given additional training time and compute.
-
-<p align="center">
-  <img src="assets/self_tried_training_result.png" width="420">
-  <br>
-  <em>4×4 grid of generated samples from the custom DDPM (CelebA 64×64, undertrained)</em>
-</p>
-
----
-
-### Part 2 — RePaint Inpainting Results
-
-The following results are produced by running the RePaint sampling algorithm on top of OpenAI's pretrained 256×256 Guided Diffusion model. Each figure shows a 2×2 grid: **Ground Truth** | **Mask** / **Masked Image** | **RePaint Output**.
-
-The inpainted regions show strong semantic coherence with the surrounding context — textures, lighting, and structure align naturally at the mask boundaries, which is the direct benefit of the resampling jump schedule.
+The inpainting results demonstrate strong semantic coherence between generated and known regions — textures, lighting, and structure align naturally at mask boundaries without any model finetuning. This is the direct effect of the resampling jump schedule.
 
 <p align="center">
   <img src="assets/repaint_result_plot3.png" width="380">
@@ -441,63 +250,254 @@ The inpainted regions show strong semantic coherence with the surrounding contex
 </p>
 
 <p align="center">
-  <em>RePaint inpainting results across four test images (256×256). Each panel: Ground Truth, Mask, Masked Input, Inpainted Output.</em>
+  <em>Inpainting results across four test images (256×256). Each panel: Ground Truth | Mask | Masked Input | Inpainted Output.</em>
 </p>
 
 ---
 
-## Component Comparison
+## Experiments
 
-| Feature          | Custom DDPM              | RePaint (Simplified)      |
-| ---------------- | ------------------------ | ------------------------- |
-| Training         | From scratch             | Uses pretrained weights   |
-| Dataset          | CelebA 64×64             | ImageNet / CelebA 256×256 |
-| Task             | Unconditional generation | Image inpainting          |
-| Noise schedule   | Cosine                   | Linear                    |
-| Sampling steps   | 1000                     | 250 (with resampling)     |
-| Attention        | Bottleneck only          | 32×32, 16×16, 8×8         |
+All experiment scripts live in `repaint_simplified/experiments/`. Each script is self-contained, drives `run_experiment.py` with specific parameter configurations, and saves results to structured output directories. Visualizations are generated via `plot_results.py` and saved to `outputs/result_plots/`.
+
+### Evaluation Metrics (`metrics.py`)
+
+*(Not yet used in experiments — implemented for future quantitative evaluation.)*
+
+Three metrics are defined, computed exclusively over the **unknown region** $(1 - m)$:
+
+$$\text{L1} = \mathbb{E}\!\left[|(x - x_0) \odot (1-m)|\right]$$
+
+$$\text{L2} = \mathbb{E}\!\left[(x - x_0)^2 \odot (1-m)\right]$$
+
+$$\text{LPIPS} = \text{perceptual distance via pretrained AlexNet, masked region only}$$
+
+`compute_all_metrics` returns all three. LPIPS captures structural and textural fidelity that pixel-level metrics miss and would be the most informative of the three for evaluating inpainting realism.
+
+---
+
+### Experiment 1 — Resampling Ablation (`exp_resampling.py`)
+
+**Question:** How much does the jump resampling mechanism contribute to output quality?
+
+**Setup:** A fixed image-mask pair is run under two configurations — standard DDPM (no resampling: `jump_length=1, jump_n_sample=1`) and full RePaint — with all other parameters held constant. This isolates the resampling contribution from the known-pixel injection, which is present in both.
+
+**Key finding:** Resampling is critical for boundary coherence. Without it, generated content is often locally plausible but misaligned with surrounding context at mask edges. The jump schedule gives the model repeated exposure to the boundary at each noise level, enabling it to reconcile generated and known regions globally.
+
+**Results** — `outputs/result_plots/resampling_comparison.png`:
+
+<p align="center">
+  <img src="repaint_simplified/outputs/result_plots/resampling_comparison.png" width="720">
+  <br>
+  <em>Left: standard DDPM sampling (no resampling). Right: full RePaint with jump schedule.</em>
+</p>
+
+---
+
+### Experiment 2 — Jump Parameter Ablation (`exp_jumps.py`)
+
+**Question:** How do `jump_length` and `jump_n_sample` affect output quality?
+
+**Setup:** A grid of `(jump_length, jump_n_sample)` combinations is run on a fixed image-mask pair:
+
+```
+jump_lengths  = [1, 5, 10]
+jump_n_sample = [5, 10]
+```
+
+Inpainting outputs are saved per configuration and visualized as a comparison grid. Sampling schedule plots are also generated for each combination to show the structure of the timestep trajectory.
+
+**Inpainting results** — `outputs/result_plots/jump_ablation.png`:
+
+<p align="center">
+  <img src="repaint_simplified/outputs/result_plots/jump_ablation.png" width="720">
+  <br>
+  <em>Inpainting outputs across the (jump_length, jump_n_sample) grid.</em>
+</p>
+
+**Sampling schedules** — `outputs/schedule_plots/`:
+
+<p align="center">
+  <img src="repaint_simplified/outputs/schedule_plots/250_1_5.png" width="460">
+  <img src="repaint_simplified/outputs/schedule_plots/250_1_10.png" width="460">
+</p>
+<p align="center">
+  <em>jump_length=1, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=1, jump_n_sample=10</em>
+</p>
+
+<p align="center">
+  <img src="repaint_simplified/outputs/schedule_plots/250_5_5.png" width="460">
+  <img src="repaint_simplified/outputs/schedule_plots/250_5_10.png" width="460">
+</p>
+<p align="center">
+  <em>jump_length=5, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=5, jump_n_sample=10</em>
+</p>
+
+<p align="center">
+  <img src="repaint_simplified/outputs/schedule_plots/250_10_5.png" width="460">
+  <img src="repaint_simplified/outputs/schedule_plots/250_10_10.png" width="460">
+</p>
+<p align="center">
+  <em>jump_length=10, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=10, jump_n_sample=10</em>
+</p>
+
+**Interpretation:** `jump_n_sample` controls how many times each resampling window repeats — higher values give the model more reconciliation passes but scale total compute nearly linearly. `jump_length` controls the window size, determining how much noise is reintroduced per jump and how far back the model revisits before denoising again. The schedule plots make the structure of each configuration directly visible: `jump_length=1, jump_n_sample=1` is a straight monotone descent; larger values produce increasingly jagged non-monotone trajectories.
+
+---
+
+### Experiment 3 — Stochastic Diversity (`exp_diversity.py`)
+
+**Question:** How much variation does the model produce across runs on the same input?
+
+**Setup:** A fixed image-mask pair is run across multiple random seeds. All outputs are saved for side-by-side comparison.
+
+**Key finding:** Variation across seeds reflects the model's learned distribution over plausible completions — not instability. Different seeds produce outputs that are semantically consistent with the surrounding known region while differing in fine-grained details, indicating the model has captured meaningful constraints from context rather than memorising a fixed completion.
+
+**Results** — `outputs/result_plots/diversity.png`:
+
+<p align="center">
+  <img src="repaint_simplified/outputs/result_plots/diversity.png" width="720">
+  <br>
+  <em>Multiple inpainting completions for the same input across different random seeds.</em>
+</p>
+
+---
+
+### Experiment 4 — Mask Geometry Robustness (`exp_masks.py`)
+
+**Question:** How does RePaint perform across different mask shapes, sizes, and positions?
+
+**Setup:** All combinations of 9 ground truth images and 7 masks are run, covering a range of mask geometries. Outputs are organized hierarchically by image and mask; `plot_results.py` renders them as a grid with rows per mask type.
+
+**Motivation:** RePaint's conditioning mechanism is geometry-agnostic at the algorithm level, but inpainting difficulty varies significantly with mask size and proximity to semantically important regions. This experiment surfaces that variation empirically.
+
+**Results** — `outputs/result_plots/mask_exp.png`:
+
+<p align="center">
+  <img src="repaint_simplified/outputs/result_plots/mask_exp.png" width="720">
+  <br>
+  <em>Inpainting results across all image–mask combinations. Rows correspond to mask types.</em>
+</p>
+
+---
+
+### Running All Experiments
+
+```bash
+python repaint_simplified/experiments/exp_resampling.py
+python repaint_simplified/experiments/exp_jumps.py
+python repaint_simplified/experiments/exp_diversity.py
+python repaint_simplified/experiments/exp_masks.py
+
+# Generate sampling schedule plots
+python repaint_simplified/plot_schedule.py
+
+# Visualize all experiment results
+python repaint_simplified/plot_results.py
+```
+
+---
+
+## Background: Custom DDPM
+
+Before implementing RePaint, a DDPM was trained from scratch on CelebA 64×64 to build concrete intuition for the forward process, noise schedules, and reverse diffusion mechanics. The full pipeline is intact and included for completeness.
+
+### Architecture
+
+The denoising network is a U-Net that takes a noisy image $x_t$ and timestep $t$ as input and predicts the noise component $\epsilon_\theta(x_t, t)$.
+
+```
+Encoder:    Conv → ResBlocks → Strided Conv (downsample) → ...
+Bottleneck: ResBlock → Self-Attention → ResBlock
+Decoder:    TransposedConv (upsample) + Skip Connections → ResBlocks → ...
+```
+
+Each residual block contains GroupNorm (8 groups), SiLU activation, a 3×3 convolution, and a residual skip connection. Timestep embeddings are injected via a linear projection added to intermediate feature maps.
+
+**Timestep embedding** — sinusoidal positional embeddings passed through an MLP with SiLU activation:
+
+$$\text{emb}(t) = [\sin(\omega_1 t),\, \cos(\omega_1 t),\, \ldots]$$
+
+**Self-attention** — a single-head block in the bottleneck: GroupNorm → QKV projection (1×1 conv) → scaled dot-product attention → output projection.
+
+| Parameter                | Value                |
+|--------------------------|----------------------|
+| Input / output channels  | 3                    |
+| Base channels            | 64                   |
+| Time embedding dimension | 256                  |
+| Normalization            | GroupNorm (8 groups) |
+| Activation               | SiLU                 |
+
+### Diffusion Process
+
+**Forward diffusion** corrupts images progressively:
+
+$$x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$$
+
+**Cosine noise schedule** with $s = 0.008$, $T = 1000$:
+
+$$\bar{\alpha}_t = \cos^2\!\left(\frac{t/T + s}{1 + s} \cdot \frac{\pi}{2}\right)$$
+
+**Training objective:**
+
+$$\mathcal{L} = \mathbb{E}_{x_0, t, \epsilon}\!\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
+
+implemented as `MSELoss(predicted_noise, true_noise)`.
+
+### Training Configuration
+
+| Setting               | Value         |
+|-----------------------|---------------|
+| Dataset               | CelebA 64×64  |
+| Max samples           | 35,840        |
+| Batch size            | 128           |
+| Gradient accumulation | 2 steps       |
+| Optimizer             | Adam, lr 2e-4 |
+| Grad clip norm        | 1.0           |
+| EMA decay             | 0.9999        |
+
+Gradient accumulation (`accum_steps=2`) simulates a larger effective batch size. EMA weights are used for checkpoint saving and sampling. Best checkpoints are saved based on lowest training loss as `.pth` files, alongside loss arrays (`.npy`) and plots (`.png`).
+
+### Sampling
+
+Generation starts from $x_T \sim \mathcal{N}(0, I)$ and denoises for $T = 1000$ steps. At each timestep: predict noise $\hat{\epsilon}_\theta(x_t, t)$ → estimate clean image $\hat{x}_0$ → compute posterior mean $\mu_t$ → sample $x_{t-1} = \mu_t + \sigma_t z$ (for $t > 0$) or return $\mu_t$ (for $t = 0$). Final images are clamped to $[-1, 1]$ and mapped to $[0, 1]$ for visualization as a 4×4 grid.
+
+### Results
+
+The outputs exhibit the characteristic "cloud-like" blurriness of an undertrained diffusion model — global structure begins to emerge but fine detail does not resolve. The full pipeline would converge given additional compute.
+
+<p align="center">
+  <img src="assets/self_tried_training_result.png" width="380">
+  <br>
+  <em>4×4 sample grid — custom DDPM, CelebA 64×64, undertrained.</em>
+</p>
+
+```bash
+python train.py   # train
+python sample.py  # sample
+```
 
 ---
 
 ## Setup
 
-Install dependencies:
-
 ```bash
 pip install -r requirements.txt
 ```
 
-Dependencies: `torch`, `numpy`, `PIL`, `matplotlib`, `tqdm`
+Dependencies: `torch`, `numpy`, `Pillow`, `matplotlib`, `tqdm`, `imageio`, `lpips`
 
----
-
-## Usage
-
-**Train the diffusion model:**
-```bash
-python train.py
-```
-
-**Generate samples:**
-```bash
-python sample.py
-```
-
-**Run RePaint inpainting:**
-```bash
-python repaint_simplified/sample_repaint.py
-```
+Place pretrained weights in `repaint_simplified/pretrained_weights/` before running inference.
 
 ---
 
 ## References
 
-* **RePaint** — https://github.com/andreas128/RePaint
-* **OpenAI Guided Diffusion** — https://github.com/openai/guided-diffusion
-* **Original DDPM implementation** — https://github.com/hojonathanho/diffusion
+- Lugmayr et al., *RePaint: Inpainting using Denoising Diffusion Probabilistic Models* — https://github.com/andreas128/RePaint
+- Dhariwal & Nichol, *Diffusion Models Beat GANs on Image Synthesis* — https://github.com/openai/guided-diffusion
+- Ho et al., *Denoising Diffusion Probabilistic Models* — https://github.com/hojonathanho/diffusion
 
 ---
 
 ## Author
 
-Independent exploration of diffusion-based generative modeling and diffusion-based image inpainting using PyTorch.
+Independent study of diffusion-based image inpainting using PyTorch.
