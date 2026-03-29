@@ -286,7 +286,7 @@ $$\text{LPIPS} = \text{perceptual distance via pretrained AlexNet, masked region
 **Results** — `outputs/result_plots/resampling_comparison.png`:
 
 <p align="center">
-  <img src="repaint_simplified/outputs/result_plots/resampling_comparison.png" width="720">
+  <img src="outputs/result_plots/resampling_comparison.png" width="720">
   <br>
   <em>Left: standard DDPM sampling (no resampling). Right: full RePaint with jump schedule.</em>
 </p>
@@ -309,7 +309,7 @@ Inpainting outputs are saved per configuration and visualized as a comparison gr
 **Inpainting results** — `outputs/result_plots/jump_ablation.png`:
 
 <p align="center">
-  <img src="repaint_simplified/outputs/result_plots/jump_ablation.png" width="720">
+  <img src="outputs/result_plots/jump_ablation.png" width="720">
   <br>
   <em>Inpainting outputs across the (jump_length, jump_n_sample) grid.</em>
 </p>
@@ -317,24 +317,24 @@ Inpainting outputs are saved per configuration and visualized as a comparison gr
 **Sampling schedules** — `outputs/schedule_plots/`:
 
 <p align="center">
-  <img src="repaint_simplified/outputs/schedule_plots/250_1_5.png" width="460">
-  <img src="repaint_simplified/outputs/schedule_plots/250_1_10.png" width="460">
+  <img src="outputs/schedule_plots/250_1_5.png" width="460">
+  <img src="outputs/schedule_plots/250_1_10.png" width="460">
 </p>
 <p align="center">
   <em>jump_length=1, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=1, jump_n_sample=10</em>
 </p>
 
 <p align="center">
-  <img src="repaint_simplified/outputs/schedule_plots/250_5_5.png" width="460">
-  <img src="repaint_simplified/outputs/schedule_plots/250_5_10.png" width="460">
+  <img src="outputs/schedule_plots/250_5_5.png" width="460">
+  <img src="outputs/schedule_plots/250_5_10.png" width="460">
 </p>
 <p align="center">
   <em>jump_length=5, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=5, jump_n_sample=10</em>
 </p>
 
 <p align="center">
-  <img src="repaint_simplified/outputs/schedule_plots/250_10_5.png" width="460">
-  <img src="repaint_simplified/outputs/schedule_plots/250_10_10.png" width="460">
+  <img src="outputs/schedule_plots/250_10_5.png" width="460">
+  <img src="outputs/schedule_plots/250_10_10.png" width="460">
 </p>
 <p align="center">
   <em>jump_length=10, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=10, jump_n_sample=10</em>
@@ -355,7 +355,7 @@ Inpainting outputs are saved per configuration and visualized as a comparison gr
 **Results** — `outputs/result_plots/diversity.png`:
 
 <p align="center">
-  <img src="repaint_simplified/outputs/result_plots/diversity.png" width="720">
+  <img src="outputs/result_plots/diversity.png" width="720">
   <br>
   <em>Multiple inpainting completions for the same input across different random seeds.</em>
 </p>
@@ -373,7 +373,7 @@ Inpainting outputs are saved per configuration and visualized as a comparison gr
 **Results** — `outputs/result_plots/mask_exp.png`:
 
 <p align="center">
-  <img src="repaint_simplified/outputs/result_plots/mask_exp.png" width="720">
+  <img src="outputs/result_plots/mask_exp.png" width="720">
   <br>
   <em>Inpainting results across all image–mask combinations. Rows correspond to mask types.</em>
 </p>
