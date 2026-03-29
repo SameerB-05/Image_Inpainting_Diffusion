@@ -317,24 +317,24 @@ Inpainting outputs are saved per configuration and visualized as a comparison gr
 **Sampling schedules** — `outputs/schedule_plots/`:
 
 <p align="center">
-  <img src="outputs/schedule_plots/250_1_5_broken.png" width="460">
-  <img src="outputs/schedule_plots/250_1_10_broken.png" width="460">
+  <img src="outputs/schedule_plots/250_1_5_broken.png" width="400">
+  <img src="outputs/schedule_plots/250_1_10_broken.png" width="400">
 </p>
 <p align="center">
   <em>jump_length=1, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=1, jump_n_sample=10</em>
 </p>
 
 <p align="center">
-  <img src="outputs/schedule_plots/250_5_5_broken.png" width="460">
-  <img src="outputs/schedule_plots/250_5_10_broken.png" width="460">
+  <img src="outputs/schedule_plots/250_5_5_broken.png" width="350">
+  <img src="outputs/schedule_plots/250_5_10_broken.png" width="350">
 </p>
 <p align="center">
   <em>jump_length=5, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=5, jump_n_sample=10</em>
 </p>
 
 <p align="center">
-  <img src="outputs/schedule_plots/250_10_5_broken.png" width="460">
-  <img src="outputs/schedule_plots/250_10_10_broken.png" width="460">
+  <img src="outputs/schedule_plots/250_10_5_broken.png" width="350">
+  <img src="outputs/schedule_plots/250_10_10_broken.png" width="350">
 </p>
 <p align="center">
   <em>jump_length=10, jump_n_sample=5 &nbsp;&nbsp;&nbsp;&nbsp; jump_length=10, jump_n_sample=10</em>
