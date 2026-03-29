@@ -103,7 +103,7 @@ $$x_{t-1} = m \odot x_{t-1}^{\text{known}} + (1 - m) \odot x_{t-1}^{\text{unknow
 
 Mask merging alone can produce locally plausible but globally inconsistent results — the model generates the unknown region without sufficient awareness of its surroundings. RePaint addresses this by diffusing $x_{t-1}$ forward one step and denoising again:
 
-$$x_{t_{\text{next}}} \sim \mathcal{N}\!\left(\sqrt{1 - \beta_{t_{\text{next}}}}\, x_{t-1},\; \beta_{t_{\text{next}}}\, I\right) \quad \longrightarrow \quad \text{denoise again}$$
+$$x_{t_{\text{next}}} \sim \mathcal{N}\left(\sqrt{1 - \beta_{t_{\text{next}}}}\, x_{t-1}, \beta_{t_{\text{next}}}\, I\right) \quad \longrightarrow \quad \text{denoise again}$$
 
 where $t_{\text{next}} > t$ is the target timestep in the forward jump, and `diffusion.betas[t_next]` is used in the code. In the paper's notation this is written as $\beta_{t-1}$ because the paper indexes the jump relative to the current $t$ — both refer to the same $\beta$ value at the destination timestep.
 
@@ -265,9 +265,9 @@ All experiment scripts live in `repaint_simplified/experiments/`. Each script is
 
 Three metrics are defined, computed exclusively over the **unknown region** $(1 - m)$:
 
-$$\text{L1} = \mathbb{E}\!\left[|(x - x_0) \odot (1-m)|\right]$$
+$$\text{L1} = \mathbb{E}\left[|(x - x_0) \odot (1-m)|\right]$$
 
-$$\text{L2} = \mathbb{E}\!\left[(x - x_0)^2 \odot (1-m)\right]$$
+$$\text{L2} = \mathbb{E}\left[(x - x_0)^2 \odot (1-m)\right]$$
 
 $$\text{LPIPS} = \text{perceptual distance via pretrained AlexNet, masked region only}$$
 
@@ -435,11 +435,11 @@ $$x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon, \qua
 
 **Cosine noise schedule** with $s = 0.008$, $T = 1000$:
 
-$$\bar{\alpha}_t = \cos^2\!\left(\frac{t/T + s}{1 + s} \cdot \frac{\pi}{2}\right)$$
+$$\bar{\alpha}_t = \cos^2\left(\frac{t/T + s}{1 + s} \cdot \frac{\pi}{2}\right)$$
 
 **Training objective:**
 
-$$\mathcal{L} = \mathbb{E}_{x_0, t, \epsilon}\!\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
+$$\mathcal{L} = \mathbb{E}_{x_0, t, \epsilon}\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
 
 implemented as `MSELoss(predicted_noise, true_noise)`.
 
