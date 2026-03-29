@@ -52,7 +52,7 @@ def repaint_sample(
 
  
     # Generate RePaint timestep schedule
-    T = len(diffusion.betas)
+    T = diffusion.num_timesteps
     ts = get_schedule(T, jump_length, jump_n_sample)
 
     is_ddpm = (jump_length == 1 and jump_n_sample == 1)
@@ -69,19 +69,12 @@ def repaint_sample(
         if t_next < 0:
             break
 
-        # safety check (prevents CUDA assert crashes)
-        if t < 0 or t >= diffusion.num_timesteps:
-            print("Invalid t:", t)
-            continue
-        if t_next >= diffusion.num_timesteps:
-            print("Invalid t_next:", t_next)
-            continue
-
         t_tensor = torch.tensor([t] * B, device=device)
 
 
         # PURE DDPM MODE
         if is_ddpm:
+            # Reverse diffusion step only
             out = diffusion.p_sample(model, x, t_tensor, model_kwargs=None)
             x = out["sample"]
 
@@ -105,7 +98,7 @@ def repaint_sample(
                 noise = torch.randn_like(x)
                 x = torch.sqrt(1 - beta) * x + torch.sqrt(beta) * noise
 
-        if return_frames:
+        if return_frames and i % 100 == 0:
             frames.append(x.clone())
     
     if return_frames:
