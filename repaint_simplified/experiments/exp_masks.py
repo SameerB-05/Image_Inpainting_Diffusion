@@ -11,20 +11,21 @@ def main():
 
     # CONFIG
     images = [
-        "repaint_simplified/data/gt/inet_0001.png",
-        "repaint_simplified/data/gt/inet_0002.png",
+        "repaint_simplified/data/gt/inet_0000.png",
         "repaint_simplified/data/gt/inet_0003.png",
+        "repaint_simplified/data/gt/inet_0037.png",
     ]
 
     masks = {
-        "narrow": "repaint_simplified/data/masks/000001.png",
         "wide":   "repaint_simplified/data/masks/000010.png",
-        "thin":   "repaint_simplified/data/masks/000020.png",
-        "thick":  "repaint_simplified/data/masks/000030.png",
+        "thin":   "repaint_simplified/data/masks/000082.png",
+        "thick":  "repaint_simplified/data/masks/000029.png",
     }
 
     base_output = Path("outputs/exp_masks")
     base_output.mkdir(parents=True, exist_ok=True)
+
+    RUN_SCRIPT = Path("repaint_simplified/run_experiment.py")
 
     # LOOP
     for img_path in images:
@@ -37,7 +38,7 @@ def main():
             save_dir = base_output / img_name / mask_name
 
             cmd = [
-                "python", "run_experiment.py",
+                "python", str(RUN_SCRIPT),
                 "--image", img_path,
                 "--mask", mask_path,
                 "--steps", "250",

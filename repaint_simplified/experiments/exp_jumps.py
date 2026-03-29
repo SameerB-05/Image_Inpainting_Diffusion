@@ -10,7 +10,7 @@ def run_command(cmd):
 def main():
 
     # CONFIG
-    image = "repaint_simplified/data/gt/inet_0003.png"
+    image = "repaint_simplified/data/gt/inet_0047.png"
     mask = "repaint_simplified/data/masks/000010.png"
 
     base_output = Path("outputs/exp_jumps")
@@ -18,6 +18,8 @@ def main():
 
     jump_lengths = [1, 5, 10]
     jump_ns = [5, 10]
+
+    RUN_SCRIPT = Path("repaint_simplified/run_experiment.py")
 
     # LOOP
     for jl in jump_lengths:
@@ -29,7 +31,7 @@ def main():
             save_dir = base_output / exp_name
 
             cmd = [
-                "python", "run_experiment.py",
+                "python", str(RUN_SCRIPT),
                 "--image", image,
                 "--mask", mask,
                 "--steps", "250",
