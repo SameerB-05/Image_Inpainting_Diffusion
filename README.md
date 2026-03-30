@@ -458,7 +458,20 @@ Gradient accumulation (`accum_steps=2`) simulates a larger effective batch size.
 
 ### Sampling
 
-Generation starts from $x_T \sim \mathcal{N}(0, I)$ and denoises for $T = 1000$ steps. At each timestep: predict noise $\hat{\epsilon}_\theta(x_t, t)$ → estimate clean image $\hat{x}_0$ → compute posterior mean $\mu_t$ → sample $x_{t-1} = \mu_t + \sigma_t z$ (for $t > 0$) or return $\mu_t$ (for $t = 0$). Final images are clamped to $[-1, 1]$ and mapped to $[0, 1]$ for visualization as a 4×4 grid.
+Generation starts from:
+
+$$x_T \sim \mathcal{N}(0, I)$$
+
+At each timestep:
+- Predict noise:  
+  $$\hat{\epsilon}_\theta(x_t, t)$$
+- Estimate clean image:  
+  $$\hat{x}_0$$
+- Compute posterior mean:  
+  $$\mu_t$$
+- Sample:
+  $$x_{t-1} = \mu_t + \sigma_t z \quad (t > 0)$$
+  $$x_{t-1} = \mu_t \quad (t = 0)$$
 
 ### Results
 
