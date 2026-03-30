@@ -2,7 +2,7 @@
 
 This repository is an implementation and experimental study of **RePaint** — a sampling-based method for image inpainting using pretrained denoising diffusion probabilistic models. The central question it addresses: *can an unconditional diffusion model be conditioned on known pixels purely through its sampling procedure, with no finetuning or retraining?*
 
-The implementation builds on OpenAI's pretrained 256×256 Guided Diffusion model. All conditioning happens at inference time through a modified sampling procedure. A from-scratch DDPM trained on CelebA 64×64 is also included — it was the starting point for building intuition about diffusion model internals and motivates the shift to the pretrained-model approach.
+I built this on top of OpenAI's pretrained 256×256 Guided Diffusion model. All conditioning happens at inference time through a modified sampling procedure. I also included a from-scratch DDPM trained on CelebA 64×64 — that was my starting point for building intuition about diffusion model internals, and it's what motivated the shift to the pretrained-model approach.
 
 ---
 
@@ -395,6 +395,12 @@ python repaint_simplified/plot_results.py
 ```
 
 ---
+### Limitations
+
+- Experiments are run on a small number of images due to compute constraints.
+- Quantitative evaluation is not included yet.
+- The pretrained model is used as-is, so results depend on its original training distribution.
+
 
 ## Background: Custom DDPM
 
