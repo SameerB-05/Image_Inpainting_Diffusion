@@ -43,7 +43,6 @@ The implementation builds on OpenAI's pretrained 256×256 Guided Diffusion model
     │   ├── exp_jumps.py         # Ablation over jump_length and jump_n_sample
     │   ├── exp_diversity.py     # Stochastic output diversity across seeds
     │   ├── exp_masks.py         # Robustness across mask geometries
-    │   ├── exp_compute.py       # Compute cost comparison
     │   └── metrics.py           # L1, L2, and LPIPS evaluation (not yet used)
     │
     ├── openai_guided_diffusion/ # OpenAI Guided Diffusion UNet and diffusion logic
@@ -84,7 +83,7 @@ The UNet predicts the noise component; the reverse posterior is sampled via the 
 
 Rather than inserting clean ground-truth pixels — which would create a noise-level mismatch with the generated region — known pixels are noised to the current timestep $t$ using the forward process:
 
-$$x_{t-1}^{\text{known}} = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon$$
+$$x_{t-1}^{\text{known}} = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon$$
 
 ```python
 noisy_gt = diffusion.q_sample(gt, t_tensor)
@@ -93,7 +92,7 @@ x = mask * noisy_gt + (1 - mask) * x
 
 This ensures both regions carry consistent noise statistics, which is essential for the model to reason coherently across the boundary.
 
-> **Note on deviation from the paper:** The algorithm (line 5) specifies $x_{t-1}^{\text{known}} = \sqrt{\bar{\alpha}_t}\, x_0 + (1 - \bar{\alpha}_t)\, \epsilon$ — with subscript $t-1$ on the left, implying the known region should be noised to level $t-1$, i.e. `q_sample(gt, t-1)`. This implementation calls `q_sample(gt, t)` instead, injecting a slightly more noisy version of the known region than the algorithm strictly specifies. This is a minor off-by-one that many implementations make in practice and has negligible effect on output quality.
+> **Note on deviation from the paper:** The algorithm (line 5) specifies $x_{t-1}^{\text{known}} = \sqrt{\bar{\alpha}_t} x_0 + (1 - \bar{\alpha}_t) \epsilon$ — with subscript $t-1$ on the left, implying the known region should be noised to level $t-1$, i.e. `q_sample(gt, t-1)`. This implementation calls `q_sample(gt, t)` instead, injecting a slightly more noisy version of the known region than the algorithm strictly specifies. This is a minor off-by-one that many implementations make in practice and has negligible effect on output quality.
 
 **Step 3 — Mask merge**
 
@@ -103,7 +102,7 @@ $$x_{t-1} = m \odot x_{t-1}^{\text{known}} + (1 - m) \odot x_{t-1}^{\text{unknow
 
 Mask merging alone can produce locally plausible but globally inconsistent results — the model generates the unknown region without sufficient awareness of its surroundings. RePaint addresses this by diffusing $x_{t-1}$ forward one step and denoising again:
 
-$$x_{t_{\text{next}}} \sim \mathcal{N}\left(\sqrt{1 - \beta_{t_{\text{next}}}}\, x_{t-1}, \beta_{t_{\text{next}}}\, I\right) \quad \longrightarrow \quad \text{denoise again}$$
+$$x_{t_{\text{next}}} \sim \mathcal{N}\left(\sqrt{1 - \beta_{t_{\text{next}}}} x_{t-1}, \beta_{t_{\text{next}}} I\right) \quad \longrightarrow \quad \text{denoise again}$$
 
 where $t_{\text{next}} > t$ is the target timestep in the forward jump, and `diffusion.betas[t_next]` is used in the code. In the paper's notation this is written as $\beta_{t-1}$ because the paper indexes the jump relative to the current $t$ — both refer to the same $\beta$ value at the destination timestep.
 
@@ -366,14 +365,14 @@ Inpainting outputs are saved per configuration and visualized as a comparison gr
 
 **Question:** How does RePaint perform across different mask shapes, sizes, and positions?
 
-**Setup:** All combinations of 9 ground truth images and 7 masks are run, covering a range of mask geometries. Outputs are organized hierarchically by image and mask; `plot_results.py` renders them as a grid with rows per mask type.
+**Setup:** Multiple combinations of ground truth images and masks are run, covering a range of mask geometries. Outputs are organized hierarchically by image and mask; `plot_results.py` renders them as a grid with rows per mask type.
 
 **Motivation:** RePaint's conditioning mechanism is geometry-agnostic at the algorithm level, but inpainting difficulty varies significantly with mask size and proximity to semantically important regions. This experiment surfaces that variation empirically.
 
-**Results** — `outputs/result_plots/mask_exp.png`:
+**Results** — `outputs/result_plots/mask_exp_inet_0003.png`:
 
 <p align="center">
-  <img src="outputs/result_plots/mask_exp.png" width="720">
+  <img src="outputs/result_plots/mask_exp_inet_0003.png" width="720">
   <br>
   <em>Inpainting results across all image–mask combinations. Rows correspond to mask types.</em>
 </p>
@@ -415,7 +414,7 @@ Each residual block contains GroupNorm (8 groups), SiLU activation, a 3×3 convo
 
 **Timestep embedding** — sinusoidal positional embeddings passed through an MLP with SiLU activation:
 
-$$\text{emb}(t) = [\sin(\omega_1 t),\, \cos(\omega_1 t),\, \ldots]$$
+$$\text{emb}(t) = [\sin(\omega_1 t), \cos(\omega_1 t), \ldots]$$
 
 **Self-attention** — a single-head block in the bottleneck: GroupNorm → QKV projection (1×1 conv) → scaled dot-product attention → output projection.
 
@@ -431,7 +430,7 @@ $$\text{emb}(t) = [\sin(\omega_1 t),\, \cos(\omega_1 t),\, \ldots]$$
 
 **Forward diffusion** corrupts images progressively:
 
-$$x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$$
+$$x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$$
 
 **Cosine noise schedule** with $s = 0.008$, $T = 1000$:
 
