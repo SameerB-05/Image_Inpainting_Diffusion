@@ -494,9 +494,10 @@ Place pretrained weights in `repaint_simplified/pretrained_weights/` before runn
 - Lugmayr et al., *RePaint: Inpainting using Denoising Diffusion Probabilistic Models* — https://github.com/andreas128/RePaint
 - Dhariwal & Nichol, *Diffusion Models Beat GANs on Image Synthesis* — https://github.com/openai/guided-diffusion
 - Ho et al., *Denoising Diffusion Probabilistic Models* — https://github.com/hojonathanho/diffusion
+- Eli Schwartz, *imagenet-sample-images* — https://github.com/EliSchwartz/imagenet-sample-images
 
 ---
 
-## Author
+## Project Context
 
-Independent study of diffusion-based image inpainting using PyTorch.
+This project is an independent study on diffusion-based image inpainting using PyTorch, covering DDPM training and RePaint-based inference.

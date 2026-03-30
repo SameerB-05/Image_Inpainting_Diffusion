@@ -4,3 +4,5 @@ numpy
 matplotlib
 Pillow
 tqdm
+imageio
+lpips
