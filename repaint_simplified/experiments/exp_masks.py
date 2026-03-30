@@ -11,7 +11,7 @@ def main():
 
     # CONFIG
     images = [
-        "repaint_simplified/data/gt/inet_0000.png",
+        "repaint_simplified/data/gt/inet_0047.png",
         "repaint_simplified/data/gt/inet_0003.png",
         "repaint_simplified/data/gt/inet_0037.png",
     ]

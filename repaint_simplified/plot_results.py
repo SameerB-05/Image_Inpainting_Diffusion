@@ -162,47 +162,110 @@ def plot_jump_ablation(base_dir, save_path=None):
 
 def plot_mask_experiment(base_dir, save_path=None):
     """
-    Visualize different mask types for each image
+    Visualize mask variation per GT image
+    Layout:
+        Row 0: GT | wide mask | wide masked | wide output
+        Row 1:    | thin mask | thin masked | thin output
+        Row 2:    | thick mask| thick masked| thick output
     """
 
     base_dir = Path(base_dir)
     image_dirs = sorted(base_dir.glob("*"))
 
+    mask_order = ["wide", "thin", "thick"]
+
     for img_dir in image_dirs:
 
-        mask_dirs = sorted(img_dir.glob("*"))
-
-        if len(mask_dirs) == 0:
+        if not img_dir.is_dir():
             continue
 
         print(f"Plotting: {img_dir.name}")
 
-        images = []
-        titles = []
+        rows = []
 
-        for mdir in mask_dirs:
-            gt = load_img(mdir / "gt.png")
-            mask = load_img(mdir / "mask.png")
-            masked = load_img(mdir / "masked.png")
-            output = load_img(mdir / "output.png")
+        gt_img = None
 
-            # Add full row per mask
-            images.extend([gt, mask, masked, output])
-            titles.extend([
-                f"{mdir.name} - GT",
-                f"{mdir.name} - Mask",
-                f"{mdir.name} - Masked",
-                f"{mdir.name} - Output",
-            ])
+        for i, mask_name in enumerate(mask_order):
+            mdir = img_dir / mask_name
 
-        # 4 columns per mask row
-        show_grid(
-            images,
-            titles,
-            n_cols=4,
-            figsize=(16, 4 * len(mask_dirs)),
-            save_path=f"{save_path}_{img_dir.name}.png" if save_path else None
-        )
+            if not mdir.exists():
+                continue
+
+            try:
+                gt = load_img(mdir / "gt.png")
+                mask = load_img(mdir / "mask.png")
+                masked = load_img(mdir / "masked.png")
+                output = load_img(mdir / "output.png")
+            except Exception as e:
+                print(f"Skipping {mdir}: {e}")
+                continue
+
+            if gt_img is None:
+                gt_img = gt  # store once
+
+            if i == 0:
+                # First row includes GT
+                rows.append([
+                    gt, mask, masked, output
+                ])
+                titles = ["GT", f"{mask_name} Mask", "Masked", "Output"]
+            else:
+                # Remaining rows: empty first column
+                rows.append([
+                    None, mask, masked, output
+                ])
+
+        if len(rows) == 0:
+            continue
+
+        n_rows = len(rows)
+        n_cols = 4
+
+        fig, axs = plt.subplots(n_rows, n_cols, figsize=(16, 4 * n_rows))
+
+        if n_rows == 1:
+            axs = [axs]
+
+        for r in range(n_rows):
+            for c in range(n_cols):
+                ax = axs[r][c]
+
+                img = rows[r][c]
+
+                if img is not None:
+                    ax.imshow(img, cmap="gray" if c == 1 else None)
+
+                # Remove ticks (but keep labels)
+                ax.set_xticks([])
+                ax.set_yticks([])
+
+                # Remove borders
+                for spine in ax.spines.values():
+                    spine.set_visible(False)
+
+                # Column titles
+                if r == 0:
+                    if c == 0:
+                        ax.set_title("GT")
+                    elif c == 1:
+                        ax.set_title("Mask")
+                    elif c == 2:
+                        ax.set_title("Masked")
+                    elif c == 3:
+                        ax.set_title("Output")
+
+                # Mask label below mask image
+                if c == 1:
+                    label = mask_order[r]
+                    ax.set_xlabel(label.capitalize(), fontsize=10, labelpad=6)
+
+        final_save_path = None
+        if save_path:
+            save_path = Path(save_path)
+            final_save_path = save_path.parent / f"{save_path.stem}_{img_dir.name}.png"
+            plt.savefig(final_save_path, dpi=300, bbox_inches="tight")
+
+        plt.show()
 
 # Main
 def main():
@@ -217,21 +280,20 @@ def main():
         save_path = save_path / "resampling_comparison.png"
     )"""
 
-    plot_diversity(
+    """plot_diversity(
         "outputs/exp_diversity",
         save_path = save_path / "diversity.png"
-    )
+    )"""
 
     """plot_jump_ablation(
         "outputs/exp_jumps",
         save_path = save_path / "jump_ablation.png"
     )"""
     
-    """
     plot_mask_experiment(
         "outputs/exp_masks",
         save_path = save_path / "mask_exp.png"
-    )"""
+    )
 
 if __name__ == "__main__":
     main()
