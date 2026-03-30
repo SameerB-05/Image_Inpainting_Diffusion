@@ -164,7 +164,7 @@ def main():
     gt_files = list(gt_folder.glob("*.png"))
 
     #gt_path = random.choice(gt_files)
-    gt_path = Path(r"C:\Users\samee\Documents\GitHub_Repos\Image_Inpainting_Diffusion\repaint_simplified\data\gt\inet_0000.png")
+    gt_path = Path(r"repaint_simplified\data\gt\inet_0015.png")
     print("Selected GT:", gt_path.name)
 
     gt = load_image(gt_path, image_size).to(device)
@@ -175,7 +175,7 @@ def main():
     mask_files = list(mask_folder.glob("*.png"))
 
     #mask_path = random.choice(mask_files)
-    mask_path = Path(r"C:\Users\samee\Documents\GitHub_Repos\Image_Inpainting_Diffusion\repaint_simplified\data\masks\000010.png")
+    mask_path = Path(r"repaint_simplified\data\masks\000010.png")
     print("Selected mask:", mask_path.name)
 
     mask = load_mask(mask_path, image_size).to(device)

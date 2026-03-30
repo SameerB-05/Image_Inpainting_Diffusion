@@ -98,7 +98,7 @@ def repaint_sample(
                 noise = torch.randn_like(x)
                 x = torch.sqrt(1 - beta) * x + torch.sqrt(beta) * noise
 
-        if return_frames and i % 100 == 0:
+        if return_frames and i % 50 == 0:
             frames.append(x.clone())
     
     if return_frames:
